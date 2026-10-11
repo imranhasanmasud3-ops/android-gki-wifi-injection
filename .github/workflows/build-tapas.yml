@@ -1,34 +1,28 @@
 name: Build for Tapas 5.15.220
-
 on: workflow_dispatch
-
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install deps
+      - name: Install
+        run: sudo apt-get update && sudo apt-get install -y clang llvm lld bc flex bison libssl-dev libelf-dev
+      - name: Build
         run: |
-          sudo apt update && sudo apt install -y clang-14 lld-14 build-essential bc flex bison libssl-dev
-          sudo ln -sf /usr/bin/clang-14 /usr/bin/clang
-          sudo ln -sf /usr/bin/ld.lld-14 /usr/bin/ld.lld
-      - name: Clone GKI 5.15.220
-        run: |
-          git clone https://android.googlesource.com/kernel/common --depth=1 -b android13-5.15-2023-10 common
+          git clone https://android.googlesource.com/kernel/common --depth=1 -b android13-5.15 common
           cd common
-          # patch for tapas
-          make LLVM=1 ARCH=arm64 gki_defconfig
+          make ARCH=arm64 LLVM=1 gki_defconfig
           ./scripts/config --enable CONFIG_MT7601U
           ./scripts/config --enable CONFIG_RT2X00
           ./scripts/config --enable CONFIG_RT2X00_LIB_USB
           ./scripts/config --enable CONFIG_RT2800USB
-          ./scripts/config --enable CONFIG_RT2800USB_RT5370
-          make LLVM=1 ARCH=arm64 -j$(nproc) modules_prepare
-          make LLVM=1 ARCH=arm64 -j$(nproc) M=drivers/net/wireless/mediatek/mt7601u
-          make LLVM=1 ARCH=arm64 -j$(nproc) M=drivers/net/wireless/ralink/rt2x00
-          find . -name "*.ko" -exec cp {} ../ \;
-      - name: Upload modules
+          make ARCH=arm64 LLVM=1 -j$(nproc) modules_prepare
+          make ARCH=arm64 LLVM=1 -j$(nproc) M=drivers/net/wireless/mediatek/mt7601u M=drivers/net/wireless/ralink/rt2x00
+          mkdir -p ../out
+          find . -name "*.ko" -exec cp {} ../out/ \;
+          ls ../out/
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: wifi-drivers-tapas-5.15.220
-          path: "*.ko"
+          name: wifi-drivers-tapas
+          path: out/*.ko
