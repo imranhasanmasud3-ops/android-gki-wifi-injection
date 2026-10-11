@@ -1,29 +1,31 @@
-name: Build for Tapas 5.15.220
+name: Build WiFi KO Only
 on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install
-        run: sudo apt-get update && sudo apt-get install -y clang llvm lld bc flex bison libssl-dev libelf-dev
-      - name: Build
+      - name: Install deps
         run: |
-          git clone https://android.googlesource.com/kernel/common --depth=1 -b android13-5.15 common
-          cd common
-          make ARCH=arm64 LLVM=1 gki_defconfig
-          ./scripts/config --module CONFIG_MT7601U
-          ./scripts/config --module CONFIG_MT76x0U
-          ./scripts/config --module CONFIG_RT2X00
-          ./scripts/config --module CONFIG_RT2X00_LIB_USB
-          ./scripts/config --module CONFIG_RT2800USB
-          make ARCH=arm64 LLVM=1 -j$(nproc) modules_prepare
-          make ARCH=arm64 LLVM=1 -j$(nproc) modules
-          mkdir -p ../out
-          find . -name "mt7601u.ko" -exec cp {} ../out/ \;
-          find . -name "rt2x00*.ko" -o -name "rt2800*.ko" | xargs -I{} cp {} ../out/ || true
-          ls -lh ../out/
+          sudo apt update
+          sudo apt install -y bc bison flex libelf-dev libssl-dev build-essential
+      - name: Get Kernel Source
+        run: |
+          git clone --depth=1 https://github.com/szymonqzx/apex.git -b zepharo kernel
+          cd kernel
+          # Enable only needed drivers
+          echo "CONFIG_MT7601U=m" >> arch/arm64/configs/tapas_defconfig
+          echo "CONFIG_RT2X00=m" >> arch/arm64/configs/tapas_defconfig
+          echo "CONFIG_RT2X00_LIB=m" >> arch/arm64/configs/tapas_defconfig
+          echo "CONFIG_RT2800USB=m" >> arch/arm64/configs/tapas_defconfig
+          echo "CONFIG_RT2X00_LIB_USB=m" >> arch/arm64/configs/tapas_defconfig
+      - name: Build Modules Only
+        run: |
+          cd kernel
+          make O=out tapas_defconfig
+          make O=out -j2 modules -k
+          find out -name "mt7601u.ko" -o -name "rt2800usb.ko" | head -20
       - uses: actions/upload-artifact@v4
         with:
-          name: wifi-drivers-tapas-5.15.220
-          path: out/
+          name: tapas-wifi-drivers
+          path: kernel/out/**/*.ko
