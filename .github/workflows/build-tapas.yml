@@ -12,17 +12,18 @@ jobs:
           git clone https://android.googlesource.com/kernel/common --depth=1 -b android13-5.15 common
           cd common
           make ARCH=arm64 LLVM=1 gki_defconfig
-          ./scripts/config --enable CONFIG_MT7601U
-          ./scripts/config --enable CONFIG_RT2X00
-          ./scripts/config --enable CONFIG_RT2X00_LIB_USB
-          ./scripts/config --enable CONFIG_RT2800USB
+          ./scripts/config --module CONFIG_MT7601U
+          ./scripts/config --module CONFIG_MT76x0U
+          ./scripts/config --module CONFIG_RT2X00
+          ./scripts/config --module CONFIG_RT2X00_LIB_USB
+          ./scripts/config --module CONFIG_RT2800USB
           make ARCH=arm64 LLVM=1 -j$(nproc) modules_prepare
-          make ARCH=arm64 LLVM=1 -j$(nproc) M=drivers/net/wireless/mediatek/mt7601u M=drivers/net/wireless/ralink/rt2x00
+          make ARCH=arm64 LLVM=1 -j$(nproc) modules
           mkdir -p ../out
-          find . -name "*.ko" -exec cp {} ../out/ \;
-          ls ../out/
-      - name: Upload
-        uses: actions/upload-artifact@v4
+          find . -name "mt7601u.ko" -exec cp {} ../out/ \;
+          find . -name "rt2x00*.ko" -o -name "rt2800*.ko" | xargs -I{} cp {} ../out/ || true
+          ls -lh ../out/
+      - uses: actions/upload-artifact@v4
         with:
-          name: wifi-drivers-tapas
-          path: out/*.ko
+          name: wifi-drivers-tapas-5.15.220
+          path: out/
